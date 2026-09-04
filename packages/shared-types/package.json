@@ -1,0 +1,23 @@
+{
+  "name": "@repo/shared-types",
+  "version": "0.0.0",
+  "private": true,
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "exports": {
+    ".": "./src/index.ts",
+    "./inventory": "./src/inventory.ts",
+    "./warehouse": "./src/warehouse.ts",
+    "./orders": "./src/orders.ts",
+    "./marketplace": "./src/marketplace.ts",
+    "./auth": "./src/auth.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "clean": "rm -rf node_modules"
+  },
+  "devDependencies": {
+    "typescript": "^5.3.0",
+    "zod": "^3.22.0"
+  }
+}

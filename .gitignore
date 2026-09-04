@@ -1,0 +1,53 @@
+# Dependencies
+node_modules
+.pnp
+.pnp.js
+
+# Build
+dist
+build
+.next
+out
+
+# Turbo
+.turbo
+
+# IDE
+.idea
+.vscode
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Environment
+.env
+.env.local
+.env.*.local
+
+# Logs
+logs
+*.log
+npm-debug.log*
+pnpm-debug.log*
+
+# Test
+coverage
+.nyc_output
+
+# Prisma
+prisma/migrations/*
+!prisma/migrations/.gitkeep
+
+# Docker
+docker-compose.override.yml
+
+# Capacitor
+apps/picker-pwa/android
+apps/picker-pwa/ios
+
+# Misc
+*.tsbuildinfo
+.eslintcache

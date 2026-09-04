@@ -1,0 +1,16 @@
+{
+  "extends": "@repo/config/typescript/next.json",
+  "compilerOptions": {
+    "baseUrl": ".",
+    "paths": {
+      "@/*": ["./src/*"],
+      "@repo/ui/*": ["../../packages/ui/src/*"],
+      "@repo/shared-types/*": ["../../packages/shared-types/src/*"],
+      "@repo/db/*": ["../../packages/db/src/*"],
+      "@repo/marketplace-adapters/*": ["../../packages/marketplace-adapters/src/*"]
+    },
+    "plugins": [{ "name": "next" }]
+  },
+  "include": ["next-env.d.ts", "**/*.ts", "**/*.tsx", ".next/types/**/*.ts"],
+  "exclude": ["node_modules"]
+}

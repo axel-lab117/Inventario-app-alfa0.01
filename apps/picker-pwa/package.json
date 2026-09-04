@@ -1,0 +1,51 @@
+{
+  "name": "@wms/picker-pwa",
+  "version": "0.0.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev -p 3001",
+    "build": "next build",
+    "start": "next start",
+    "lint": "next lint",
+    "typecheck": "tsc --noEmit",
+    "cap:add": "capacitor add",
+    "cap:sync": "capacitor sync",
+    "cap:open:android": "capacitor open android",
+    "cap:build:android": "capacitor build android",
+    "clean": "rm -rf node_modules .next android ios"
+  },
+  "dependencies": {
+    "@capacitor/core": "^5.6.0",
+    "@capacitor/camera": "^5.0.0",
+    "@capacitor/haptics": "^5.0.0",
+    "@capacitor/preferences": "^5.0.0",
+    "@capacitor-community/mlkit-barcodescanning": "^5.0.0",
+    "@repo/config": "workspace:*",
+    "@repo/db": "workspace:*",
+    "@repo/shared-types": "workspace:*",
+    "@repo/ui": "workspace:*",
+    "next": "^14.0.0",
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0",
+    "zustand": "^4.4.0",
+    "idb": "^8.0.0",
+    "date-fns": "^2.30.0",
+    "clsx": "^2.0.0",
+    "tailwind-merge": "^2.0.0",
+    "lucide-react": "^0.294.0",
+    "neverthrow": "^6.0.0"
+  },
+  "devDependencies": {
+    "@capacitor/cli": "^5.6.0",
+    "@capacitor/android": "^5.6.0",
+    "@repo/config": "workspace:*",
+    "@types/node": "^20.10.0",
+    "@types/react": "^18.2.0",
+    "@types/react-dom": "^18.2.0",
+    "autoprefixer": "^10.4.0",
+    "postcss": "^8.4.0",
+    "tailwindcss": "^3.3.0",
+    "typescript": "^5.3.0",
+    "eslint": "^8.55.0"
+  }
+}

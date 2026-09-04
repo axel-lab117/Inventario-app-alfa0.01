@@ -1,0 +1,653 @@
+generator client {
+  provider = "prisma-client-js"
+  output   = "../src/generated/client"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  OWNER
+  SUPERVISOR
+  EMPLOYEE
+  VIEWER
+}
+
+enum ProductCondition {
+  NEW
+  OPEN_BOX_A
+  OPEN_BOX_B
+  OPEN_BOX_C
+  DAMAGED
+  REFURBISHED
+}
+
+enum ListingStatus {
+  LISTED
+  UNLISTED
+  DRAFT
+  ARCHIVED
+}
+
+enum LocationType {
+  ZONE
+  AISLE
+  RACK
+  SHELF
+  BIN
+  VIRTUAL
+}
+
+enum StockMovementType {
+  RECEIPT
+  REMOVE
+  RETURN
+  ADJUSTMENT
+  TRANSFER_IN
+  TRANSFER_OUT
+  OPEN_BOX_CONVERSION
+  DAMAGE
+  CYCLE_COUNT
+  INITIAL
+}
+
+enum OrderSource {
+  MERCADOLIBRE
+  FRAVEGA
+  GARBARINO
+  MEGATONE
+  SHOPIFY
+  TIENDANUBE
+  MANUAL
+  API
+}
+
+enum OrderStatus {
+  PENDING
+  CONFIRMED
+  PICKING
+  PACKING
+  READY_TO_SHIP
+  SHIPPED
+  DELIVERED
+  CANCELLED
+  RETURNED
+  ON_HOLD
+}
+
+enum ReturnStatus {
+  REQUESTED
+  AUTHORIZED
+  RECEIVED
+  INSPECTION
+  RESTOCKED
+  OPEN_BOX
+  DAMAGED
+  DISPOSED
+  REFUNDED
+  REJECTED
+}
+
+enum Marketplace {
+  MERCADOLIBRE
+  FRAVEGA
+  GARBARINO
+  MEGATONE
+  SHOPIFY
+  TIENDANUBE
+  AMAZON
+}
+
+enum ConnectionStatus {
+  ACTIVE
+  INACTIVE
+  ERROR
+  SYNCING
+}
+
+enum SyncType {
+  STOCK
+  PRICE
+  ORDERS
+  PRODUCTS
+  FULL
+}
+
+enum SyncStatus {
+  STARTED
+  SUCCESS
+  PARTIAL
+  FAILED
+}
+
+model Tenant {
+  id                String   @id @default(uuid())
+  name              String
+  slug              String   @unique
+  logoUrl           String?
+  primaryColor      String   @default("#3B82F6")
+  secondaryColor    String   @default("#64748B")
+  settings          Json     @default("{}")
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  users             User[]
+  apiKeys           ApiKey[]
+  products          Product[]
+  variants          ProductVariant[]
+  locations         Location[]
+  stockLevels       StockLevel[]
+  stockMovements    StockMovement[]
+  warehouseMaps     WarehouseMap[]
+  orders            Order[]
+  returnOrders      ReturnOrder[]
+  pickingTasks      PickingTask[]
+  marketplaceConnections MarketplaceConnection[]
+  syncLogs          SyncLog[]
+  webhookEvents     WebhookEvent[]
+
+  @@index([slug])
+  @@map("tenants")
+}
+
+model User {
+  id            String   @id @default(uuid())
+  tenantId      String
+  tenant        Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  email         String
+  passwordHash  String
+  name          String
+  role          Role     @default(EMPLOYEE)
+  avatarUrl     String?
+  isActive      Boolean  @default(true)
+  lastLoginAt   DateTime?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  pickedMovements StockMovement[] @relation("PickedBy")
+  inspectedReturns ReturnOrder[]  @relation("InspectedBy")
+  assignedTasks    PickingTask[]  @relation("AssignedTasks")
+
+  @@unique([tenantId, email])
+  @@index([tenantId])
+  @@map("users")
+}
+
+model ApiKey {
+  id            String   @id @default(uuid())
+  tenantId      String
+  tenant        Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  name          String
+  hashedKey     String
+  permissions   String[]
+  lastUsedAt    DateTime?
+  expiresAt     DateTime?
+  createdAt     DateTime @default(now())
+
+  @@index([tenantId])
+  @@map("api_keys")
+}
+
+model Product {
+  id            String   @id @default(uuid())
+  tenantId      String
+  tenant        Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  sku           String
+  name          String
+  description   String?
+  brand         String?
+  model         String?
+  categoryId    String?
+  basePrice     Float    @default(0)
+  costPrice     Float    @default(0)
+  weightGrams   Int?
+  dimensions    Json?
+  barcode       String?  @unique
+  gtin          String?  @unique
+  images        String[] @default("[]")
+  attributes    Json     @default("{}")
+  isActive      Boolean  @default(true)
+  isBundle      Boolean  @default(false)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  variants      ProductVariant[]
+  bundleItems   BundleItem[] @relation("BundleParent")
+  bundleParents BundleItem[] @relation("BundleChild")
+
+  @@unique([tenantId, sku])
+  @@index([tenantId])
+  @@index([barcode])
+  @@index([gtin])
+  @@map("products")
+}
+
+model BundleItem {
+  id             String  @id @default(uuid())
+  parentProductId String
+  parentProduct  Product @relation("BundleParent", fields: [parentProductId], references: [id], onDelete: Cascade)
+  childProductId String
+  childProduct   Product @relation("BundleChild", fields: [childProductId], references: [id], onDelete: Cascade)
+  quantity       Int     @default(1)
+
+  @@unique([parentProductId, childProductId])
+  @@map("bundle_items")
+}
+
+model ProductVariant {
+  id              String           @id @default(uuid())
+  productId       String
+  product         Product          @relation(fields: [productId], references: [id], onDelete: Cascade)
+  tenantId        String
+  tenant          Tenant           @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  sku             String
+  barcode         String?          @unique
+  condition       ProductCondition @default(NEW)
+  listingStatus   ListingStatus    @default(UNLISTED)
+  priceOverride   Float?
+  costOverride    Float?
+  images          String[]         @default("[]")
+  attributes      Json             @default("{}")
+  isActive        Boolean          @default(true)
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+
+  stockLevels     StockLevel[]
+  stockMovements  StockMovement[]
+  orderItems      OrderItem[]
+  pickingTaskItems PickingTaskItem[]
+  marketplaceProducts MarketplaceProduct[]
+
+  @@unique([tenantId, sku])
+  @@index([tenantId])
+  @@index([productId])
+  @@index([barcode])
+  @@map("product_variants")
+}
+
+model Location {
+  id            String       @id @default(uuid())
+  tenantId      String
+  tenant        Tenant       @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  code          String
+  name          String
+  type          LocationType
+  parentId      String?
+  parent        Location?    @relation("LocationHierarchy", fields: [parentId], references: [id], onDelete: SetNull)
+  children      Location[]   @relation("LocationHierarchy")
+  capacity      Int?
+  dimensions    Json?
+  coordinates   Json?
+  isActive      Boolean      @default(true)
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
+
+  stockLevels   StockLevel[]
+  stockMovements StockMovement[]
+  pickingTaskItems PickingTaskItem[]
+
+  @@unique([tenantId, code])
+  @@index([tenantId])
+  @@index([parentId])
+  @@map("locations")
+}
+
+model StockLevel {
+  id                   String   @id @default(uuid())
+  tenantId             String
+  tenant               Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  variantId            String
+  variant              ProductVariant @relation(fields: [variantId], references: [id], onDelete: Cascade)
+  locationId           String
+  location             Location @relation(fields: [locationId], references: [id], onDelete: Cascade)
+  quantity             Int      @default(0)
+  reservedQuantity     Int      @default(0)
+  availableQuantity    Int      @default(0)
+  lastCountedAt        DateTime?
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
+
+  @@unique([variantId, locationId])
+  @@index([tenantId])
+  @@index([locationId])
+  @@map("stock_levels")
+}
+
+model StockMovement {
+  id               String             @id @default(uuid())
+  tenantId         String
+  tenant           Tenant             @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  variantId        String
+  variant          ProductVariant     @relation(fields: [variantId], references: [id], onDelete: Cascade)
+  locationId       String
+  location         Location           @relation(fields: [locationId], references: [id], onDelete: Cascade)
+  type             StockMovementType
+  quantity         Int
+  referenceId      String?
+  referenceType    String?
+  employeeId       String?
+  employee         User?              @relation("PickedBy", fields: [employeeId], references: [id], onDelete: SetNull)
+  reason           String?
+  metadata         Json               @default("{}")
+  idempotencyKey   String?            @unique
+  createdAt        DateTime           @default(now())
+
+  @@index([tenantId])
+  @@index([variantId])
+  @@index([locationId])
+  @@index([employeeId])
+  @@index([createdAt])
+  @@index([idempotencyKey])
+  @@map("stock_movements")
+}
+
+model WarehouseMap {
+  id          String   @id @default(uuid())
+  tenantId    String
+  tenant      Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  name        String
+  svgContent  String   @db.Text
+  viewBox     Json
+  scale       Float    @default(1)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  zones       Zone[]
+
+  @@index([tenantId])
+  @@map("warehouse_maps")
+}
+
+model Zone {
+  id            String   @id @default(uuid())
+  mapId         String
+  map           WarehouseMap @relation(fields: [mapId], references: [id], onDelete: Cascade)
+  name          String
+  color         String
+  path          String   @db.Text
+  locationIds   String[] @default("[]")
+  metadata      Json     @default("{}")
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@index([mapId])
+  @@map("zones")
+}
+
+model Order {
+  id                  String       @id @default(uuid())
+  tenantId            String
+  tenant              Tenant       @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  source              OrderSource
+  sourceOrderId       String
+  sourceOrderNumber   String?
+  status              OrderStatus  @default(PENDING)
+  customer            Json
+  shippingAddress     Json
+  billingAddress      Json?
+  subtotal            Float        @default(0)
+  tax                 Float        @default(0)
+  shipping            Float        @default(0)
+  discount            Float        @default(0)
+  total               Float        @default(0)
+  currency            String       @default("ARS")
+  notes               String?
+  tags                String[]     @default("[]")
+  marketplaceData     Json         @default("{}")
+  pickedAt            DateTime?
+  packedAt            DateTime?
+  shippedAt           DateTime?
+  deliveredAt         DateTime?
+  cancelledAt         DateTime?
+  createdAt           DateTime     @default(now())
+  updatedAt           DateTime     @updatedAt
+
+  items               OrderItem[]
+  returnOrders        ReturnOrder[]
+  pickingTasks        PickingTask[]
+
+  @@unique([tenantId, source, sourceOrderId])
+  @@index([tenantId])
+  @@index([status])
+  @@index([source])
+  @@index([createdAt])
+  @@map("orders")
+}
+
+model OrderItem {
+  id                String   @id @default(uuid())
+  orderId           String
+  order             Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  variantId         String?
+  variant           ProductVariant? @relation(fields: [variantId], references: [id], onDelete: SetNull)
+  sku               String
+  name              String
+  quantity          Int
+  unitPrice         Float
+  totalPrice        Float
+  condition         String   @default("NEW")
+  marketplaceItemId String?
+  pickedQuantity    Int      @default(0)
+  packedQuantity    Int      @default(0)
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  returnOrders      ReturnOrder[]
+
+  @@index([orderId])
+  @@index([variantId])
+  @@map("order_items")
+}
+
+model ReturnOrder {
+  id                  String       @id @default(uuid())
+  tenantId            String
+  tenant              Tenant       @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  orderId             String
+  order               Order        @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  orderItemId         String
+  orderItem           OrderItem    @relation(fields: [orderItemId], references: [id], onDelete: Cascade)
+  source              OrderSource
+  sourceReturnId      String?
+  status              ReturnStatus @default(REQUESTED)
+  reason              String
+  reasonCategory      String
+  quantity            Int
+  conditionOnReceipt  String?
+  resolution          String?
+  refundAmount        Float?
+  restockLocationId   String?
+  restockLocation     Location?    @relation(fields: [restockLocationId], references: [id], onDelete: SetNull)
+  inspectedById       String?
+  inspectedBy         User?        @relation("InspectedBy", fields: [inspectedById], references: [id], onDelete: SetNull)
+  inspectedAt         DateTime?
+  images              String[]     @default("[]")
+  notes               String?
+  createdAt           DateTime     @default(now())
+  updatedAt           DateTime     @updatedAt
+
+  @@index([tenantId])
+  @@index([orderId])
+  @@index([status])
+  @@map("return_orders")
+}
+
+model PickingTask {
+  id              String   @id @default(uuid())
+  tenantId        String
+  tenant          Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  orderId         String
+  order           Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  routeId         String?
+  items           PickingTaskItem[]
+  assignedToId    String?
+  assignedTo      User?    @relation("AssignedTasks", fields: [assignedToId], references: [id], onDelete: SetNull)
+  status          String   @default("PENDING")
+  priority        Int      @default(0)
+  startedAt       DateTime?
+  completedAt     DateTime?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@index([tenantId])
+  @@index([orderId])
+  @@index([assignedToId])
+  @@index([status])
+  @@map("picking_tasks")
+}
+
+model PickingTaskItem {
+  id                String   @id @default(uuid())
+  taskId            String
+  task              PickingTask @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  orderItemId       String
+  orderItem         OrderItem  @relation(fields: [orderItemId], references: [id], onDelete: Cascade)
+  variantId         String
+  variant           ProductVariant @relation(fields: [variantId], references: [id], onDelete: Cascade)
+  locationId        String
+  location          Location   @relation(fields: [locationId], references: [id], onDelete: Cascade)
+  requiredQuantity  Int
+  pickedQuantity    Int      @default(0)
+  sequence          Int
+  isCompleted       Boolean  @default(false)
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  @@index([taskId])
+  @@index([variantId])
+  @@index([locationId])
+  @@map("picking_task_items")
+}
+
+model MarketplaceConnection {
+  id                String            @id @default(uuid())
+  tenantId          String
+  tenant            Tenant            @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  marketplace       Marketplace
+  name              String
+  credentials       Json
+  settings          Json              @default("{}")
+  status            ConnectionStatus  @default(INACTIVE)
+  lastSyncAt        DateTime?
+  lastError         String?
+  syncEnabled       Boolean           @default(true)
+  syncIntervalMinutes Int             @default(15)
+  webhookUrl        String?
+  webhookSecret     String?
+  createdAt         DateTime          @default(now())
+  updatedAt         DateTime          @updatedAt
+
+  products          MarketplaceProduct[]
+  orders            MarketplaceOrder[]
+  syncLogs          SyncLog[]
+  webhookEvents     WebhookEvent[]
+
+  @@unique([tenantId, marketplace, name])
+  @@index([tenantId])
+  @@map("marketplace_connections")
+}
+
+model MarketplaceProduct {
+  id                    String   @id @default(uuid())
+  tenantId              String
+  tenant                Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  connectionId          String
+  connection            MarketplaceConnection @relation(fields: [connectionId], references: [id], onDelete: Cascade)
+  marketplaceProductId  String
+  marketplaceSku        String
+  localVariantId        String?
+  localVariant          ProductVariant? @relation(fields: [localVariantId], references: [id], onDelete: SetNull)
+  title                 String
+  price                 Float
+  stock                 Int
+  status                String
+  permalink             String?
+  images                String[] @default("[]")
+  attributes            Json     @default("{}")
+  lastSyncedAt          DateTime
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+
+  @@unique([connectionId, marketplaceProductId])
+  @@index([tenantId])
+  @@index([localVariantId])
+  @@map("marketplace_products")
+}
+
+model MarketplaceOrder {
+  id                    String   @id @default(uuid())
+  tenantId              String
+  tenant                Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  connectionId          String
+  connection            MarketplaceConnection @relation(fields: [connectionId], references: [id], onDelete: Cascade)
+  marketplaceOrderId    String
+  marketplaceOrderNumber String?
+  status                String
+  buyer                 Json
+  items                 Json
+  total                 Float
+  currency              String
+  shipping              Json?
+  payment               Json?
+  dates                 Json     @default("{}")
+  rawData               Json     @default("{}")
+  importedAt            DateTime?
+  createdAt             DateTime @default(now())
+
+  @@unique([connectionId, marketplaceOrderId])
+  @@index([tenantId])
+  @@index([status])
+  @@map("marketplace_orders")
+}
+
+model SyncLog {
+  id                  String      @id @default(uuid())
+  tenantId            String
+  tenant              Tenant      @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  connectionId        String
+  connection          MarketplaceConnection @relation(fields: [connectionId], references: [id], onDelete: Cascade)
+  type                SyncType
+  status              SyncStatus
+  recordsProcessed    Int         @default(0)
+  recordsSucceeded    Int         @default(0)
+  recordsFailed       Int         @default(0)
+  errors              Json        @default("[]")
+  startedAt           DateTime    @default(now())
+  completedAt         DateTime?
+
+  @@index([tenantId])
+  @@index([connectionId])
+  @@index([type])
+  @@index([status])
+  @@index([startedAt])
+  @@map("sync_logs")
+}
+
+model WebhookEvent {
+  id                String   @id @default(uuid())
+  tenantId          String
+  tenant            Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  connectionId      String
+  connection        MarketplaceConnection @relation(fields: [connectionId], references: [id], onDelete: Cascade)
+  marketplace       Marketplace
+  eventType         String
+  resourceType      String
+  resourceId        String
+  payload           Json
+  headers           Json
+  processed         Boolean  @default(false)
+  processedAt       DateTime?
+  error             String?
+  idempotencyKey    String   @unique
+  receivedAt        DateTime @default(now())
+
+  @@index([tenantId])
+  @@index([connectionId])
+  @@index([marketplace])
+  @@index([processed])
+  @@index([receivedAt])
+  @@index([idempotencyKey])
+  @@map("webhook_events")
+}

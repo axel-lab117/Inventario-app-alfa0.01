@@ -1,0 +1,182 @@
+version: '3.8'
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: wms-postgres
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-wms}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-wms_secret}
+      POSTGRES_DB: ${POSTGRES_DB:-wms}
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./packages/db/prisma/migrations:/docker-entrypoint-initdb.d/migrations:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-wms} -d ${POSTGRES_DB:-wms}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    networks:
+      - wms-network
+
+  timescaledb:
+    image: timescale/timescaledb:latest-pg16
+    container_name: wms-timescaledb
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-wms}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-wms_secret}
+      POSTGRES_DB: ${POSTGRES_DB:-wms_audit}
+    ports:
+      - "5433:5432"
+    volumes:
+      - timescaledb_data:/var/lib/postgresql/data
+    command: ["postgres", "-c", "shared_preload_libraries=timescaledb"]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-wms} -d ${POSTGRES_DB:-wms_audit}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    networks:
+      - wms-network
+
+  redis:
+    image: redis:7-alpine
+    container_name: wms-redis
+    command: redis-server --appendonly yes --maxmemory 256mb --maxmemory-policy allkeys-lru
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+    networks:
+      - wms-network
+
+  rabbitmq:
+    image: rabbitmq:3.13-management-alpine
+    container_name: wms-rabbitmq
+    environment:
+      RABBITMQ_DEFAULT_USER: ${RABBITMQ_USER:-wms}
+      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASSWORD:-wms_secret}
+      RABBITMQ_DEFAULT_VHOST: ${RABBITMQ_VHOST:-wms}
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+    volumes:
+      - rabbitmq_data:/var/lib/rabbitmq
+      - ./docker/rabbitmq/definitions.json:/etc/rabbitmq/definitions.json:ro
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "check_running"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - wms-network
+
+  minio:
+    image: minio/minio:latest
+    container_name: wms-minio
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:-wms}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-wms_secret}
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    volumes:
+      - minio_data:/data
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    networks:
+      - wms-network
+
+  sync-workers:
+    build:
+      context: .
+      dockerfile: apps/sync-workers/Dockerfile
+    container_name: wms-sync-workers
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER:-wms}:${POSTGRES_PASSWORD:-wms_secret}@postgres:5432/${POSTGRES_DB:-wms}?schema=public
+      AUDIT_DATABASE_URL: postgresql://${POSTGRES_USER:-wms}:${POSTGRES_PASSWORD:-wms_secret}@timescaledb:5432/${POSTGRES_DB:-wms_audit}?schema=public
+      REDIS_URL: redis://redis:6379
+      RABBITMQ_URL: amqp://${RABBITMQ_USER:-wms}:${RABBITMQ_PASSWORD:-wms_secret}@rabbitmq:5672/${RABBITMQ_VHOST:-wms}
+      JWT_SECRET: ${JWT_SECRET:-super_secret_change_me}
+      NODE_ENV: ${NODE_ENV:-development}
+      PORT: 4000
+      ML_CLIENT_ID: ${ML_CLIENT_ID}
+      ML_CLIENT_SECRET: ${ML_CLIENT_SECRET}
+      FRAVEGA_API_KEY: ${FRAVEGA_API_KEY}
+      GARBARINO_API_KEY: ${GARBARINO_API_KEY}
+      MEGATONE_API_KEY: ${MEGATONE_API_KEY}
+    ports:
+      - "4000:4000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      timescaledb:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    networks:
+      - wms-network
+    deploy:
+      resources:
+        limits:
+          memory: 1G
+        reservations:
+          memory: 512M
+
+  dashboard:
+    build:
+      context: .
+      dockerfile: apps/dashboard/Dockerfile
+    container_name: wms-dashboard
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER:-wms}:${POSTGRES_PASSWORD:-wms_secret}@postgres:5432/${POSTGRES_DB:-wms}?schema=public
+      REDIS_URL: redis://redis:6379
+      NEXT_PUBLIC_API_URL: http://localhost:4000
+      JWT_SECRET: ${JWT_SECRET:-super_secret_change_me}
+      NODE_ENV: ${NODE_ENV:-development}
+    ports:
+      - "3000:3000"
+    depends_on:
+      - postgres
+      - redis
+    networks:
+      - wms-network
+
+  picker-pwa:
+    build:
+      context: .
+      dockerfile: apps/picker-pwa/Dockerfile
+    container_name: wms-picker-pwa
+    environment:
+      NEXT_PUBLIC_API_URL: http://localhost:4000
+      NODE_ENV: ${NODE_ENV:-development}
+    ports:
+      - "3001:3001"
+    depends_on:
+      - sync-workers
+    networks:
+      - wms-network
+
+networks:
+  wms-network:
+    driver: bridge
+
+volumes:
+  postgres_data:
+  timescaledb_data:
+  redis_data:
+  rabbitmq_data:
+  minio_data:

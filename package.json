@@ -1,0 +1,37 @@
+{
+  "name": "wms-monorepo",
+  "version": "0.0.0",
+  "private": true,
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "dev": "turbo run dev",
+    "build": "turbo run build",
+    "build:docker": "turbo run build --filter=dashboard --filter=picker-pwa --filter=sync-workers",
+    "lint": "turbo run lint",
+    "typecheck": "turbo run typecheck",
+    "db:generate": "turbo run db:generate --filter=db",
+    "db:push": "turbo run db:push --filter=db",
+    db:migrate": "turbo run db:migrate --filter=db",
+    "db:studio": "turbo run db:studio --filter=db",
+    "clean": "turbo run clean && rm -rf node_modules .turbo",
+    "changeset": "changeset",
+    "version": "changeset version",
+    "release": "turbo run build && changeset publish"
+  },
+  "devDependencies": {
+    "@changesets/cli": "^2.27.1",
+    "@types/node": "^20.10.0",
+    "eslint": "^8.55.0",
+    "prettier": "^3.1.0",
+    "turbo": "^1.11.0",
+    "typescript": "^5.3.0"
+  },
+  "engines": {
+    "node": ">=20.0.0",
+    "pnpm": ">=8.0.0"
+  },
+  "packageManager": "pnpm@8.10.0"
+}

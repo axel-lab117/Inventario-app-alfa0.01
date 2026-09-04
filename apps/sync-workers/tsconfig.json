@@ -1,0 +1,14 @@
+{
+  "extends": "@repo/config/typescript/nest.json",
+  "compilerOptions": {
+    "baseUrl": ".",
+    "paths": {
+      "@/*": ["src/*"],
+      "@repo/shared-types/*": ["../../packages/shared-types/src/*"],
+      "@repo/db/*": ["../../packages/db/src/*"],
+      "@repo/marketplace-adapters/*": ["../../packages/marketplace-adapters/src/*"]
+    }
+  },
+  "include": ["src/**/*", "test/**/*"],
+  "exclude": ["node_modules", "dist"]
+}

@@ -1,0 +1,40 @@
+{
+  "name": "@repo/ui",
+  "version": "0.0.0",
+  "private": true,
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "exports": {
+    ".": "./src/index.ts",
+    "./components": "./src/components/index.ts",
+    "./hooks": "./src/hooks/index.ts",
+    "./utils": "./src/utils/index.ts",
+    "./styles/globals.css": "./src/styles/globals.css",
+    "./styles/tokens.css": "./src/styles/tokens.css"
+  },
+  "scripts": {
+    "dev": "tailwindcss -i ./src/styles/globals.css -o ./dist/styles.css --watch",
+    "build": "tailwindcss -i ./src/styles/globals.css -o ./dist/styles.css --minify && tsc",
+    "typecheck": "tsc --noEmit",
+    "lint": "eslint src --ext .ts,.tsx",
+    "clean": "rm -rf node_modules dist"
+  },
+  "dependencies": {
+    "clsx": "^2.0.0",
+    "tailwind-merge": "^2.0.0",
+    "lucide-react": "^0.294.0",
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0",
+    "zustand": "^4.4.0"
+  },
+  "devDependencies": {
+    "@repo/config": "workspace:*",
+    "@repo/shared-types": "workspace:*",
+    "@types/react": "^18.2.0",
+    "@types/react-dom": "^18.2.0",
+    "autoprefixer": "^10.4.0",
+    "postcss": "^8.4.0",
+    "tailwindcss": "^3.3.0",
+    "typescript": "^5.3.0"
+  }
+}
