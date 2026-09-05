@@ -222,3 +222,31 @@ export function useDeleteProduct(
     ...options,
   });
 }
+
+export function formatPrice(price: number): string {
+  return new Intl.NumberFormat('es-AR', { style: 'currency', currency: 'ARS', minimumFractionDigits: 0 }).format(price);
+}
+
+export function formatDays(days: number | null): string {
+  if (days === null || days === undefined) return '—';
+  if (days < 1) return 'Hoy';
+  if (days === 1) return '1 día';
+  if (days < 30) return `${days} días`;
+  if (days < 365) return `${Math.floor(days / 30)} mes${Math.floor(days / 30) > 1 ? 'es' : ''}`;
+  return `${Math.floor(days / 365)} año${Math.floor(days / 365) > 1 ? 's' : ''}`;
+}
+
+export function formatDate(date: string | Date): string {
+  return new Date(date).toLocaleString('es-AR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+}
+
+export function formatRelativeTime(date: string | Date): string {
+  const diff = Date.now() - new Date(date).getTime();
+  const minutes = Math.floor(diff / 60000);
+  const hours = Math.floor(diff / 3600000);
+  const days = Math.floor(diff / 86400000);
+  if (minutes < 1) return 'Ahora mismo';
+  if (minutes < 60) return `Hace ${minutes} min`;
+  if (hours < 24) return `Hace ${hours} h`;
+  return `Hace ${days} d`;
+}
