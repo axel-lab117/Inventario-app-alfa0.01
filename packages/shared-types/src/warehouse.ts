@@ -42,6 +42,7 @@ export const PickingRouteSchema = z.object({
     locationId: z.string().uuid(),
     sequence: z.number().int().positive(),
     estimatedTimeSeconds: z.number().int().positive(),
+    totalDistanceMeters: z.number().positive(),
   })),
   totalEstimatedTimeSeconds: z.number().int().positive(),
   totalDistanceMeters: z.number().positive(),
@@ -62,3 +63,27 @@ export const WarehouseSettingsSchema = z.object({
   enable3DView: z.boolean().default(false),
 });
 export type WarehouseSettings = z.infer<typeof WarehouseSettingsSchema>;
+
+export const CreateWarehouseMapDtoSchema = z.object({
+  name: z.string().min(1).max(100),
+  svgContent: z.string().optional(),
+  viewBox: z.object({ x: z.number(), y: z.number(), width: z.number(), height: z.number() }).optional(),
+  scale: z.number().positive().default(1),
+});
+
+export const UpdateWarehouseMapDtoSchema = CreateWarehouseMapDtoSchema.partial();
+
+export const CreateZoneDtoSchema = z.object({
+  name: z.string().min(1).max(50),
+  color: z.string().regex(/^#[0-9A-Fa-f]{6}$/),
+  path: z.string(),
+  locations: z.array(z.string().uuid()).default([]),
+  metadata: z.record(z.string(), z.unknown()).default({}),
+});
+
+export const UpdateZoneDtoSchema = CreateZoneDtoSchema.partial();
+
+export type CreateWarehouseMapDto = z.infer<typeof CreateWarehouseMapDtoSchema>;
+export type UpdateWarehouseMapDto = z.infer<typeof UpdateWarehouseMapDtoSchema>;
+export type CreateZoneDto = z.infer<typeof CreateZoneDtoSchema>;
+export type UpdateZoneDto = z.infer<typeof UpdateZoneDtoSchema>;

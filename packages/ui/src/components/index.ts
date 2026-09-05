@@ -7,3 +7,4 @@ export { Modal } from './Modal';
 export { Dropdown } from './Dropdown';
 export { ToastProvider, useToast } from './Toast';
 export { Skeleton } from './Skeleton';
+export { Tooltip } from './Tooltip';
