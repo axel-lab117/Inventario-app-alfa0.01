@@ -27,7 +27,6 @@ interface DropdownProps {
 export function Dropdown({ trigger, items, onSelect, selectedValue, placeholder, disabled, className }: DropdownProps) {
   const [isOpen, setIsOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
-  const buttonRef = useRef<HTMLButtonElement>(null);
 
   useOnClickOutside(dropdownRef, () => setIsOpen(false));
 
@@ -35,8 +34,6 @@ export function Dropdown({ trigger, items, onSelect, selectedValue, placeholder,
     const handleKeyDown = (e: KeyboardEvent) => {
       if (!isOpen) return;
       if (e.key === 'Escape') setIsOpen(false);
-      if (e.key === 'ArrowDown') e.preventDefault();
-      if (e.key === 'ArrowUp') e.preventDefault();
     };
     document.addEventListener('keydown', handleKeyDown);
     return () => document.removeEventListener('keydown', handleKeyDown);
@@ -49,20 +46,33 @@ export function Dropdown({ trigger, items, onSelect, selectedValue, placeholder,
 
   const selectedItem = items.find(i => i.value === selectedValue);
 
+  const triggerElement = typeof trigger === 'function' ? undefined : trigger;
+
   return (
     <div ref={dropdownRef} className={cn('relative inline-block', className)}>
-      <Button
-        ref={buttonRef}
-        variant="outline"
-        onClick={() => !disabled && setIsOpen(!isOpen)}
-        disabled={disabled}
-        className="w-full justify-between"
-      >
-        <span className={cn('truncate', !selectedItem && !placeholder && 'text-surface-400')}>
-          {selectedItem?.label || placeholder || 'Seleccionar'}
-        </span>
-        <ChevronDown className={cn('h-4 w-4 flex-shrink-0', isOpen && 'rotate-180')} />
-      </Button>
+      {triggerElement ? (
+        <Button
+          variant="outline"
+          onClick={() => !disabled && setIsOpen(!isOpen)}
+          disabled={disabled}
+          className="w-full justify-between"
+        >
+          {trigger}
+          <ChevronDown className={cn('h-4 w-4 flex-shrink-0 ml-2', isOpen && 'rotate-180')} />
+        </Button>
+      ) : (
+        <Button
+          variant="outline"
+          onClick={() => !disabled && setIsOpen(!isOpen)}
+          disabled={disabled}
+          className="w-full justify-between"
+        >
+          <span className={cn('truncate', !selectedItem && !placeholder && 'text-surface-400')}>
+            {selectedItem?.label || placeholder || 'Seleccionar'}
+          </span>
+          <ChevronDown className={cn('h-4 w-4 flex-shrink-0', isOpen && 'rotate-180')} />
+        </Button>
+      )}
 
       {isOpen && (
         <div className="dropdown" role="menu">
@@ -71,14 +81,14 @@ export function Dropdown({ trigger, items, onSelect, selectedValue, placeholder,
               key={item.value}
               role="menuitem"
               className={cn(
-                'dropdown-item w-full text-left',
+                'dropdown-item w-full text-left px-3 py-2',
                 item.disabled && 'opacity-50 cursor-not-allowed',
                 item.danger && 'text-danger-600 hover:bg-danger-50'
               )}
               disabled={item.disabled}
               onClick={() => !item.disabled && handleItemClick(item.value)}
             >
-              {item.icon && <span className="h-4 w-4">{item.icon}</span>}
+              {item.icon && <span className="h-4 w-4 mr-2">{item.icon}</span>}
               <span className="flex-1">{item.label}</span>
               {selectedValue === item.value && <Check className="h-4 w-4 text-primary-600" />}
             </button>

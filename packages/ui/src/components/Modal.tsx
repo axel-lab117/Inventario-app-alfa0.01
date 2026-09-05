@@ -1,6 +1,6 @@
 'use client';
 
-import { Fragment, type ReactNode } from 'react';
+import { Fragment, useRef, useEffect, type ReactNode } from 'react';
 import { X } from 'lucide-react';
 import { cn } from '../utils';
 import { Button } from './Button';
@@ -98,5 +98,3 @@ export function Modal({
     </Fragment>
   );
 }
-
-import { useRef, useEffect } from 'react';

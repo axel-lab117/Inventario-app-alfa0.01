@@ -1,138 +1,118 @@
+'use client';
+
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
-import type { User, Tenant, AuthTokens, JWTPayload } from '@repo/shared-types';
+
+export interface User {
+  id: string;
+  email: string;
+  name: string;
+  role: 'OWNER' | 'SUPERVISOR' | 'EMPLOYEE' | 'VIEWER';
+  avatarUrl?: string;
+  tenantId: string;
+  tenantName: string;
+  tenantSlug: string;
+}
 
 interface AuthState {
-  user: (User & { tenantName: string }) | null;
-  tokens: AuthTokens | null;
+  user: User | null;
+  token: string | null;
+  tenantId: string | null;
   isLoading: boolean;
-  initialize: () => Promise<void>;
-  login: (email: string, password: string, rememberMe?: boolean) => Promise<void>;
+  isAuthenticated: boolean;
+  login: (email: string, password: string) => Promise<void>;
   logout: () => void;
-  refreshAccessToken: () => Promise<void>;
-  hasPermission: (permission: string) => boolean;
+  initialize: () => Promise<void>;
+  setUser: (user: User) => void;
+  setToken: (token: string) => void;
+  setTenantId: (tenantId: string) => void;
 }
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
-
-function parseJWT(token: string): JWTPayload | null {
-  try {
-    const base64Url = token.split('.')[1];
-    const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
-    const jsonPayload = decodeURIComponent(
-      atob(base64).split('').map(c => '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2)).join('')
-    );
-    return JSON.parse(jsonPayload);
-  } catch {
-    return null;
-  }
-}
+const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000/api/v1';
 
 export const useAuthStore = create<AuthState>()(
   persist(
     (set, get) => ({
       user: null,
-      tokens: null,
+      token: null,
+      tenantId: null,
       isLoading: true,
+      isAuthenticated: false,
 
-      initialize: async () => {
-        const storedTokens = get().tokens;
-        if (!storedTokens) {
-          set({ isLoading: false });
-          return;
-        }
-
-        try {
-          const payload = parseJWT(storedTokens.accessToken);
-          if (!payload || payload.exp * 1000 < Date.now()) {
-            await get().refreshAccessToken();
-          } else {
-            const res = await fetch(`${API_URL}/auth/me`, {
-              headers: { Authorization: `Bearer ${storedTokens.accessToken}` },
-            });
-            if (res.ok) {
-              const user = await res.json();
-              set({ user: { ...user, tenantName: '' }, isLoading: false });
-            } else {
-              await get().refreshAccessToken();
-            }
-          }
-        } catch {
-          set({ user: null, tokens: null, isLoading: false });
-        }
-      },
-
-      login: async (email: string, password: string, rememberMe = false) => {
-        set({ isLoading: true });
-        const res = await fetch(`${API_URL}/auth/login`, {
+      login: async (email: string, password: string) => {
+        const response = await fetch(`${API_BASE}/auth/login`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ email, password, rememberMe }),
+          body: JSON.stringify({ email, password }),
         });
 
-        if (!res.ok) {
-          const error = await res.json().catch(() => ({ message: 'Error de autenticación' }));
-          set({ isLoading: false });
-          throw new Error(error.message);
+        if (!response.ok) {
+          const error = await response.json();
+          throw new Error(error.message || 'Credenciales inválidas');
         }
 
-        const { user, tokens } = await res.json();
-        set({ user: { ...user, tenantName: '' }, tokens, isLoading: false });
+        const data = await response.json();
+        const { accessToken, refreshToken, user, tenant } = data;
+
+        localStorage.setItem('refreshToken', refreshToken);
+        set({
+          user: { ...user, tenantId: tenant.id, tenantName: tenant.name, tenantSlug: tenant.slug },
+          token: accessToken,
+          tenantId: tenant.id,
+          isAuthenticated: true,
+        });
       },
 
       logout: () => {
-        set({ user: null, tokens: null });
-        fetch(`${API_URL}/auth/logout`, { method: 'POST' }).catch(() => {});
+        localStorage.removeItem('refreshToken');
+        set({ user: null, token: null, tenantId: null, isAuthenticated: false });
       },
 
-      refreshAccessToken: async () => {
-        const { tokens } = get();
-        if (!tokens?.refreshToken) {
-          set({ user: null, tokens: null, isLoading: false });
+      initialize: async () => {
+        const refreshToken = localStorage.getItem('refreshToken');
+        if (!refreshToken) {
+          set({ isLoading: false });
           return;
         }
 
         try {
-          const res = await fetch(`${API_URL}/auth/refresh`, {
+          const response = await fetch(`${API_BASE}/auth/refresh`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ refreshToken: tokens.refreshToken }),
+            body: JSON.stringify({ refreshToken }),
           });
 
-          if (!res.ok) throw new Error('Token expirado');
+          if (!response.ok) throw new Error('Token expirado');
 
-          const newTokens = await res.json();
-          set({ tokens: { ...tokens, ...newTokens } });
+          const data = await response.json();
+          const { accessToken, user, tenant } = data;
 
-          const payload = parseJWT(newTokens.accessToken);
-          if (payload) {
-            const res = await fetch(`${API_URL}/auth/me`, {
-              headers: { Authorization: `Bearer ${newTokens.accessToken}` },
-            });
-            if (res.ok) {
-              const user = await res.json();
-              set({ user: { ...user, tenantName: '' } });
-            }
-          }
+          set({
+            user: { ...user, tenantId: tenant.id, tenantName: tenant.name, tenantSlug: tenant.slug },
+            token: accessToken,
+            tenantId: tenant.id,
+            isAuthenticated: true,
+            isLoading: false,
+          });
         } catch {
-          set({ user: null, tokens: null });
-        } finally {
+          localStorage.removeItem('refreshToken');
           set({ isLoading: false });
         }
       },
 
-      hasPermission: (permission: string) => {
-        const { user } = get();
-        if (!user) return false;
-        if (user.role === 'OWNER') return true;
-        if (user.role === 'SUPERVISOR') return true;
-        return false;
-      },
+      setUser: (user) => set({ user }),
+      setToken: (token) => set({ token }),
+      setTenantId: (tenantId) => set({ tenantId }),
     }),
     {
-      name: 'wms-auth',
+      name: 'auth-storage',
       storage: createJSONStorage(() => localStorage),
-      partialize: state => ({ tokens: state.tokens }),
+      partialize: (state) => ({
+        user: state.user,
+        token: state.token,
+        tenantId: state.tenantId,
+        isAuthenticated: state.isAuthenticated,
+      }),
     }
   )
 );
