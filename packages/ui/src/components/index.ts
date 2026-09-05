@@ -1,5 +1,6 @@
 export { Button } from './Button';
 export { Input } from './Input';
+export { Textarea } from './Textarea';
 export { Card, CardHeader, CardBody, CardFooter } from './Card';
 export { Badge } from './Badge';
 export { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from './Table';
@@ -8,3 +9,6 @@ export { Dropdown } from './Dropdown';
 export { ToastProvider, useToast } from './Toast';
 export { Skeleton } from './Skeleton';
 export { Tooltip } from './Tooltip';
+export { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from './Select';
+export { Switch } from './Switch';
+export { Label } from './Label';
