@@ -16,11 +16,14 @@ const navItems = [
   { href: '/picker/history', label: 'Historial', icon: Truck },
 ];
 
+const authPaths = ['/picker/auth/login'];
+
 export default function PickerLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const { user, isLoading, initialize, logout } = useAuthStore();
   const [showMenu, setShowMenu] = useState(false);
   const [isOnline, setIsOnline] = useState(true);
+  const isAuthPath = authPaths.some(p => pathname.startsWith(p));
 
   useEffect(() => {
     initialize();
@@ -46,7 +49,11 @@ export default function PickerLayout({ children }: { children: React.ReactNode }
     );
   }
 
-  if (!user) return null;
+  if (!user && !isAuthPath) return null;
+
+  if (isAuthPath) {
+    return <>{children}</>;
+  }
 
   return (
     <div className="min-h-screen bg-surface-50">

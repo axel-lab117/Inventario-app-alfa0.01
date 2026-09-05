@@ -1,7 +1,7 @@
 import type { Metadata } from 'next';
 import { Inter } from 'next/font/google';
 import './styles/globals.css';
-import { ToastProvider } from '@repo/ui/components';
+import { Providers } from '@/providers/Providers';
 import { registerSW } from '@/lib/sw-register';
 
 const inter = Inter({ subsets: ['latin'], variable: '--font-sans' });
@@ -33,7 +33,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <link rel="apple-touch-icon" href="/icons/icon-192x192.png" />
       </head>
       <body className={`${inter.variable} font-sans antialiased`}>
-        <ToastProvider>{children}</ToastProvider>
+        <Providers>{children}</Providers>
       </body>
     </html>
   );
